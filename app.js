@@ -299,3 +299,5 @@ filtersBar.addEventListener("click", (e) => {
 setInterval(render, 30000);
 
 render();
+
+
