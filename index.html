@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DRAUGHT — Blade Templating Lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     DESIGN TOKENS — Blueprint / Drafting Sheet system
+     bg navy #0E2238, panel #142C45, grid rgba(94,196,214,.12)
+     accent cyan #4FD1D9, accent amber #E8A863
+     text #EAF2F7, muted #8FA9BC
+     ============================================================ */
+  :root{
+    --bg:#0E2238;
+    --panel:#122A44;
+    --panel-2:#0F2438;
+    --grid: rgba(95,196,214,.10);
+    --grid-strong: rgba(95,196,214,.22);
+    --line: rgba(143,169,188,.28);
+    --cyan:#4FD1D9;
+    --amber:#E8A863;
+    --text:#EAF2F7;
+    --muted:#8FA9BC;
+    --danger:#E8877E;
+    --mono: 'JetBrains Mono', monospace;
+    --sans: 'Inter', sans-serif;
+    --radius: 2px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:
+      linear-gradient(var(--grid) 1px, transparent 1px) 0 0/40px 40px,
+      linear-gradient(90deg, var(--grid) 1px, transparent 1px) 0 0/40px 40px,
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+  }
+  a{color:inherit;}
+  h1,h2,h3{font-family:var(--sans); margin:0; letter-spacing:-0.01em;}
+  p{line-height:1.65; color:var(--muted); margin:0 0 1em;}
+  button{font-family:var(--sans);}
+
+  .label{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    color:var(--cyan);
+  }
+
+  /* ---------------- Skip link / focus ---------------- */
+  .skip-link{
+    position:absolute; left:-999px; top:0;
+    background:var(--cyan); color:#06222b; padding:8px 14px;
+    font-family:var(--mono); font-size:12px; z-index:100;
+  }
+  .skip-link:focus{left:8px; top:8px;}
+  :focus-visible{outline:2px solid var(--cyan); outline-offset:2px;}
+
+  /* ---------------- Shell / "layout.blade" wrapper ---------------- */
+  .sheet{
+    max-width:1040px;
+    margin:28px auto;
+    border:1px solid var(--line);
+    background:linear-gradient(180deg, rgba(20,44,69,.55), rgba(15,36,56,.55));
+    backdrop-filter: blur(2px);
+    position:relative;
+  }
+  .sheet::before, .sheet::after,
+  .sheet .corner-br, .sheet .corner-bl{
+    content:"";
+    position:absolute; width:18px; height:18px;
+    border-color:var(--cyan);
+  }
+  .sheet::before{ top:-1px; left:-1px; border-top:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+  .sheet::after{ top:-1px; right:-1px; border-top:2px solid var(--cyan); border-right:2px solid var(--cyan); }
+  .corner-bl{ bottom:-1px; left:-1px; border-bottom:2px solid var(--cyan); border-left:2px solid var(--cyan); }
+  .corner-br{ bottom:-1px; right:-1px; border-bottom:2px solid var(--cyan); border-right:2px solid var(--cyan); }
+
+  /* header strip */
+  .masthead{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:16px; padding:20px 28px; border-bottom:1px solid var(--line);
+    flex-wrap:wrap;
+  }
+  .brand{ display:flex; align-items:center; gap:12px; }
+  .brand-mark{
+    width:34px; height:34px; flex:none;
+    animation: spin 22s linear infinite;
+    transform-origin:50% 50%;
+  }
+  @media (prefers-reduced-motion: reduce){ .brand-mark{ animation:none; } }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+  .brand-name{ font-family:var(--sans); font-weight:800; font-size:18px; letter-spacing:.01em; }
+  .brand-sub{ font-family:var(--mono); font-size:10px; color:var(--muted); letter-spacing:.12em; text-transform:uppercase; margin-top:2px;}
+
+  .meta-block{ font-family:var(--mono); font-size:11px; color:var(--muted); text-align:right; line-height:1.6;}
+  .meta-block b{ color:var(--amber); font-weight:600; }
+
+  /* nav = "sheet index" tabs */
+  nav.sheet-index{
+    display:flex; border-bottom:1px solid var(--line);
+    overflow-x:auto;
+  }
+  nav.sheet-index a{
+    text-decoration:none;
+    padding:14px 22px;
+    font-family:var(--mono);
+    font-size:12.5px;
+    letter-spacing:.06em;
+    color:var(--muted);
+    border-right:1px solid var(--line);
+    white-space:nowrap;
+    position:relative;
+    transition:color .15s ease, background .15s ease;
+  }
+  nav.sheet-index a .idx{ color:var(--amber); margin-right:8px; }
+  nav.sheet-index a:hover{ color:var(--text); background:rgba(79,209,217,.06); }
+  nav.sheet-index a[aria-current="page"]{ color:var(--cyan); background:rgba(79,209,217,.09); }
+  nav.sheet-index a[aria-current="page"]::after{
+    content:""; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--cyan);
+  }
+
+  /* main = "@yield('content')" */
+  main{ padding:44px 28px 36px; min-height:420px; }
+  .eyebrow{ display:flex; align-items:center; gap:10px; margin-bottom:14px; }
+  .eyebrow .dim-line{ flex:1; height:1px; background:var(--line); }
+  .page-title{ font-size:clamp(28px, 4vw, 40px); font-weight:800; margin-bottom:10px; }
+  .page-intro{ max-width:560px; font-size:15.5px; }
+
+  /* footer = title block, like a real engineering drawing */
+  .titleblock{
+    border-top:1px solid var(--line);
+    display:grid;
+    grid-template-columns: repeat(4, 1fr);
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--muted);
+  }
+  .titleblock div{ padding:12px 16px; border-right:1px solid var(--line); }
+  .titleblock div:last-child{ border-right:none; }
+  .titleblock b{ display:block; color:var(--text); font-size:12px; margin-bottom:3px; }
+
+  /* ---------------- shared content components ---------------- */
+  .grid-2{ display:grid; grid-template-columns: 1.1fr .9fr; gap:36px; align-items:start; }
+  @media (max-width:760px){ .grid-2{ grid-template-columns:1fr; } }
+
+  .card{
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    padding:22px;
+  }
+  .card h3{ font-size:14px; font-family:var(--mono); color:var(--amber); text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px;}
+
+  .stack{ display:flex; flex-direction:column; gap:14px; }
+  .feature-row{ display:flex; gap:14px; padding:14px 0; border-bottom:1px dashed var(--line); }
+  .feature-row:last-child{ border-bottom:none; }
+  .feature-num{ font-family:var(--mono); color:var(--cyan); font-size:12px; padding-top:2px; }
+  .feature-row h4{ margin:0 0 4px; font-size:14.5px; }
+  .feature-row p{ margin:0; font-size:13.5px; }
+
+  .btn{
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--cyan); color:#06222b; border:none;
+    font-weight:700; font-size:13.5px; padding:12px 20px;
+    cursor:pointer; letter-spacing:.02em;
+    text-decoration:none;
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .btn:hover{ box-shadow:0 0 0 3px rgba(79,209,217,.22); }
+  .btn:active{ transform:translateY(1px); }
+  .btn.ghost{
+    background:transparent; color:var(--text); border:1px solid var(--line);
+  }
+  .btn.ghost:hover{ border-color:var(--cyan); color:var(--cyan); }
+
+  /* forms */
+  form{ display:flex; flex-direction:column; gap:16px; max-width:420px; }
+  .field label{ display:block; font-family:var(--mono); font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:6px; }
+  .field input, .field textarea{
+    width:100%;
+    background:var(--panel-2);
+    border:1px solid var(--line);
+    color:var(--text);
+    padding:11px 12px;
+    font-family:var(--sans);
+    font-size:14px;
+  }
+  .field input:focus, .field textarea:focus{ border-color:var(--cyan); }
+  .field textarea{ resize:vertical; min-height:96px; }
+  .form-foot{ display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .form-foot .aux{ font-size:12.5px; color:var(--muted); }
+  .form-foot .aux a{ color:var(--cyan); text-decoration:none; border-bottom:1px dashed var(--cyan); }
+
+  .form-note{
+    display:none;
+    font-family:var(--mono); font-size:12px;
+    padding:10px 12px; border:1px solid var(--cyan);
+    color:var(--cyan); background:rgba(79,209,217,.08);
+    margin-top:2px;
+  }
+  .form-note.show{ display:block; }
+
+  .stat-strip{ display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); margin:26px 0 0; border:1px solid var(--line);}
+  .stat-strip div{ background:var(--panel-2); padding:16px 18px; }
+  .stat-strip b{ display:block; font-family:var(--mono); color:var(--amber); font-size:22px; }
+  .stat-strip span{ font-size:11.5px; color:var(--muted); }
+
+  .diagram{ width:100%; height:auto; display:block; }
+
+  @media (max-width:640px){
+    .masthead{ padding:16px 18px; }
+    main{ padding:30px 18px 26px; }
+    .titleblock{ grid-template-columns:1fr 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<a href="#main-content" class="skip-link">Skip to content</a>
+
+<!--
+  ================================================================
+  This markup intentionally mirrors Laravel's Blade inheritance:
+
+    layout.blade.php   →  the .sheet shell below (masthead, nav,
+                           <main id="main-content">, titleblock)
+                           is rendered once and never rebuilt.
+
+    @yield('content')  →  <main id="main-content"> is the outlet.
+                           renderPage() swaps its innerHTML only.
+
+    @extends('layout')  →  every page object in PAGES below
+                           implicitly "extends" this shell.
+
+    @section('content') →  each PAGES[key].content() function
+                           returns the HTML that would sit inside
+                           a Blade @section('content') ... @endsection
+                           block.
+  ================================================================
+-->
+
+<div class="sheet">
+  <div class="corner-bl"></div><div class="corner-br"></div>
+
+  <header class="masthead">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <circle cx="20" cy="20" r="18" stroke="#4FD1D9" stroke-width="1.4"/>
+        <circle cx="20" cy="20" r="2.4" fill="#E8A863"/>
+        <line x1="20" y1="3" x2="20" y2="10" stroke="#4FD1D9" stroke-width="1.4"/>
+        <line x1="20" y1="30" x2="20" y2="37" stroke="#4FD1D9" stroke-width="1.4"/>
+        <line x1="20" y1="20" x2="32" y2="12" stroke="#E8A863" stroke-width="1.4"/>
+      </svg>
+      <div>
+        <div class="brand-name">DRAUGHT</div>
+        <div class="brand-sub">Blade Templating — Lab Sheet Set</div>
+      </div>
+    </div>
+    <div class="meta-block">
+      PROJECT <b>BLD-TPL-01</b><br>
+      REV <b>A</b> · SCALE N.T.S.
+    </div>
+  </header>
+
+  <nav class="sheet-index" id="site-nav" aria-label="Page navigation">
+    <a href="#home" data-route="home"><span class="idx">A-01</span>Home</a>
+    <a href="#login" data-route="login"><span class="idx">A-02</span>Login</a>
+    <a href="#register" data-route="register"><span class="idx">A-03</span>Register</a>
+    <a href="#contact" data-route="contact"><span class="idx">A-04</span>Contact</a>
+  </nav>
+
+  <main id="main-content"><!-- @yield('content') renders here --></main>
+
+  <footer class="titleblock">
+    <div><b>Drawn by</b>Student Candidate</div>
+    <div><b>Checked</b>Lab Instructor</div>
+    <div><b>Sheet</b><span id="tb-sheet">A-01 of 4</span></div>
+    <div><b>Status</b>For Presentation</div>
+  </footer>
+</div>
+
+<script>
+/* ==================================================================
+   PAGES  —  each entry is the Blade-equivalent of a child view that
+   @extends('layouts.app') and defines @section('content').
+   Only the returned HTML string changes between routes; the shell
+   above (masthead / nav / titleblock) is never re-rendered.
+   ================================================================== */
+const PAGES = {
+
+  home: {
+    title: 'Home — Draught',
+    sheetLabel: 'A-01 of 4',
+    content: () => `
+      <div class="eyebrow"><span class="label">Sheet A-01 · Overview</span><div class="dim-line"></div></div>
+      <h1 class="page-title">A drafting table for Blade layouts.</h1>
+      <p class="page-intro">Draught is a working demo built for a Blade Templating lab exam — one shared layout, four distinct pages, and navigation that actually holds up under inspection.</p>
+
+      <div class="grid-2" style="margin-top:32px;">
+        <div class="stack">
+          <div class="feature-row">
+            <div class="feature-num">01</div>
+            <div><h4>@extends('layouts.app')</h4><p>Every page inherits one master layout — header, navigation, and footer are written once.</p></div>
+          </div>
+          <div class="feature-row">
+            <div class="feature-num">02</div>
+            <div><h4>@yield('content')</h4><p>The layout marks a single outlet where each child page's markup is dropped in.</p></div>
+          </div>
+          <div class="feature-row">
+            <div class="feature-num">03</div>
+            <div><h4>@section('content') … @endsection</h4><p>Home, Login, Register and Contact each fill that outlet with their own section.</p></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>Sheet Index</h3>
+          <p style="margin-bottom:14px;">Four sheets, one drawing set.</p>
+          <div class="stack" style="gap:10px;">
+            <a class="btn ghost" href="#home" style="justify-content:space-between;">A-01 Home <span>→</span></a>
+            <a class="btn ghost" href="#login" style="justify-content:space-between;">A-02 Login <span>→</span></a>
+            <a class="btn ghost" href="#register" style="justify-content:space-between;">A-03 Register <span>→</span></a>
+            <a class="btn ghost" href="#contact" style="justify-content:space-between;">A-04 Contact <span>→</span></a>
+          </div>
+        </div>
+      </div>
+
+      <div class="stat-strip">
+        <div><b>4</b><span>Blade pages</span></div>
+        <div><b>1</b><span>Shared layout</span></div>
+        <div><b>100%</b><span>Working nav links</span></div>
+      </div>
+
+      <div style="margin-top:30px;">
+        <a class="btn" href="#register">Start with Register →</a>
+      </div>
+    `
+  },
+
+  login: {
+    title: 'Login — Draught',
+    sheetLabel: 'A-02 of 4',
+    content: () => `
+      <div class="eyebrow"><span class="label">Sheet A-02 · Access</span><div class="dim-line"></div></div>
+      <h1 class="page-title">Log in to your workspace.</h1>
+      <p class="page-intro">This view stands in for <code>resources/views/auth/login.blade.php</code> — it extends the same layout and only supplies the form below.</p>
+
+      <div class="grid-2" style="margin-top:30px;">
+        <form id="login-form" novalidate>
+          <div class="field">
+            <label for="login-email">Email address</label>
+            <input id="login-email" name="email" type="email" placeholder="you@example.com" required>
+          </div>
+          <div class="field">
+            <label for="login-pass">Password</label>
+            <input id="login-pass" name="password" type="password" placeholder="••••••••" required minlength="6">
+          </div>
+          <div class="form-foot">
+            <button class="btn" type="submit">Log in</button>
+            <span class="aux">No account? <a href="#register">Register</a></span>
+          </div>
+          <div class="form-note" id="login-note">✓ Form validated client-side — wire this to your Laravel auth route.</div>
+        </form>
+
+        <div class="card">
+          <h3>Field Notes</h3>
+          <div class="stack" style="gap:12px;">
+            <p style="margin:0;">In Laravel this posts to <b style="color:var(--text)">POST /login</b>, guarded by the <b style="color:var(--text)">web</b> middleware group and CSRF token.</p>
+            <p style="margin:0;">The <b style="color:var(--text)">@error('email')</b> directive would render validation messages inline, right under this field.</p>
+          </div>
+        </div>
+      </div>
+    `,
+    afterRender: () => {
+      const form = document.getElementById('login-form');
+      const note = document.getElementById('login-note');
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (form.checkValidity()) { note.classList.add('show'); }
+      });
+    }
+  },
+
+  register: {
+    title: 'Register — Draught',
+    sheetLabel: 'A-03 of 4',
+    content: () => `
+      <div class="eyebrow"><span class="label">Sheet A-03 · New Account</span><div class="dim-line"></div></div>
+      <h1 class="page-title">Create an account.</h1>
+      <p class="page-intro">Stands in for <code>auth/register.blade.php</code> — same layout, new section, different fields.</p>
+
+      <div class="grid-2" style="margin-top:30px;">
+        <form id="register-form" novalidate>
+          <div class="field">
+            <label for="reg-name">Full name</label>
+            <input id="reg-name" name="name" type="text" placeholder="Juan Dela Cruz" required>
+          </div>
+          <div class="field">
+            <label for="reg-email">Email address</label>
+            <input id="reg-email" name="email" type="email" placeholder="you@example.com" required>
+          </div>
+          <div class="field">
+            <label for="reg-pass">Password</label>
+            <input id="reg-pass" name="password" type="password" placeholder="••••••••" required minlength="6">
+          </div>
+          <div class="field">
+            <label for="reg-pass2">Confirm password</label>
+            <input id="reg-pass2" name="password_confirmation" type="password" placeholder="••••••••" required minlength="6">
+          </div>
+          <div class="form-foot">
+            <button class="btn" type="submit">Create account</button>
+            <span class="aux">Have one? <a href="#login">Log in</a></span>
+          </div>
+          <div class="form-note" id="register-note">✓ Passwords match — ready for <code>Auth::register()</code>.</div>
+        </form>
+
+        <div class="card">
+          <h3>Field Notes</h3>
+          <p style="margin:0;">A real implementation would run this through a <b style="color:var(--text)">FormRequest</b> class, confirming the password with Laravel's built-in <b style="color:var(--text)">confirmed</b> validation rule.</p>
+        </div>
+      </div>
+    `,
+    afterRender: () => {
+      const form = document.getElementById('register-form');
+      const note = document.getElementById('register-note');
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        const p1 = document.getElementById('reg-pass').value;
+        const p2 = document.getElementById('reg-pass2').value;
+        if (form.checkValidity() && p1 === p2) {
+          note.classList.add('show');
+        } else if (form.checkValidity()) {
+          note.textContent = '⚠ Passwords do not match.';
+          note.style.color = 'var(--danger)';
+          note.style.borderColor = 'var(--danger)';
+          note.classList.add('show');
+        }
+      });
+    }
+  },
+
+  contact: {
+    title: 'Contact — Draught',
+    sheetLabel: 'A-04 of 4',
+    content: () => `
+      <div class="eyebrow"><span class="label">Sheet A-04 · Get in Touch</span><div class="dim-line"></div></div>
+      <h1 class="page-title">Send a message.</h1>
+      <p class="page-intro">Stands in for <code>contact.blade.php</code> — the fourth and final sheet in this drawing set.</p>
+
+      <div class="grid-2" style="margin-top:30px;">
+        <form id="contact-form" novalidate>
+          <div class="field">
+            <label for="c-name">Name</label>
+            <input id="c-name" name="name" type="text" placeholder="Your name" required>
+          </div>
+          <div class="field">
+            <label for="c-email">Email address</label>
+            <input id="c-email" name="email" type="email" placeholder="you@example.com" required>
+          </div>
+          <div class="field">
+            <label for="c-msg">Message</label>
+            <textarea id="c-msg" name="message" placeholder="What would you like to say?" required></textarea>
+          </div>
+          <div class="form-foot">
+            <button class="btn" type="submit">Send message</button>
+          </div>
+          <div class="form-note" id="contact-note">✓ Message queued — this would hit a <code>POST /contact</code> route.</div>
+        </form>
+
+        <div class="card">
+          <h3>Contact Block</h3>
+          <div class="stack" style="gap:10px;">
+            <p style="margin:0;"><span class="label">Studio</span><br>Draught Lab Exam Demo</p>
+            <p style="margin:0;"><span class="label">Email</span><br>hello@draught.test</p>
+            <p style="margin:0;"><span class="label">Hours</span><br>Mon–Fri, scheduled lab time</p>
+          </div>
+        </div>
+      </div>
+    `,
+    afterRender: () => {
+      const form = document.getElementById('contact-form');
+      const note = document.getElementById('contact-note');
+      form.addEventListener('submit', (e) => {
+        e.preventDefault();
+        if (form.checkValidity()) { note.classList.add('show'); form.reset(); }
+      });
+    }
+  }
+};
+
+/* ==================================================================
+   renderPage()  —  the "view resolver". Reads the current route,
+   injects the matching @section('content') into the @yield outlet,
+   updates <title>, the title-block sheet number, and nav state.
+   ================================================================== */
+function renderPage() {
+  const route = (location.hash || '#home').slice(1);
+  const page = PAGES[route] || PAGES.home;
+
+  document.title = page.title;
+  document.getElementById('main-content').innerHTML = page.content();
+  document.getElementById('tb-sheet').textContent = page.sheetLabel;
+
+  document.querySelectorAll('#site-nav a').forEach(link => {
+    const isActive = link.dataset.route === (PAGES[route] ? route : 'home');
+    if (isActive) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
+
+  if (typeof page.afterRender === 'function') page.afterRender();
+  document.getElementById('main-content').focus({ preventScroll: true });
+}
+
+window.addEventListener('hashchange', renderPage);
+window.addEventListener('DOMContentLoaded', renderPage);
+</script>
+
+</body>
+</html>
